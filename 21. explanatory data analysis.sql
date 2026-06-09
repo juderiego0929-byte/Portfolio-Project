@@ -1,0 +1,133 @@
+
+select *
+FROM layoffs_stage2
+;
+
+-- MAX TOTAL LAID OFF IN LAYOFFS_STAGE 2 --
+SELECT max(total_laid_off)
+FROM layoffs_stage2
+;
+
+
+-- Which companies had 1 which is basically 100 percent of they company laid off --
+
+SELECT *
+FROM layoffs_stage2
+WHERE percentage_laid_off = 1
+ORDER BY funds_raised_millions DESC
+;
+
+-- DATE STARTED  AND ON GOING DATE --
+SELECT min(`DATE`), max(`DATE`)
+FROM layoffs_stage2
+;
+
+-- THE SUM OF TOTAL LAID OFF BY COMPANY --
+SELECT company, sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY COMPANY
+ORDER BY 2 DESC
+;
+
+
+-- THE SUM OF TOTAL LAID OFF BY INDUSTRY --
+SELECT industry, sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY industry
+ORDER BY 2 DESC
+;
+
+-- THE SUM OF TOTAL LAID OFF BY COUNTRY --
+SELECT COUNTRY, sum(total_laid_off)
+FROM layoffs_stage2
+group by COUNTRY
+ORDER BY 2 DESC
+;
+
+
+-- SUM OF TOTAL LAID OFF PER YEAR --
+SELECT YEAR(`DATE`), sum(total_laid_off)
+FROM layoffs_stage2
+group by YEAR(`DATE`)
+ORDER BY 1 DESC
+;
+
+-- SUM OF TOTAL LAID OFF BY STAGE --
+
+SELECT STAGE, sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY STAGE
+ORDER BY 1 DESC
+;
+
+-- SUM OF PERCENTAGE LAID OFF BY COMPANY --
+SELECT company, sum(percentage_laid_off)
+FROM layoffs_stage2
+GROUP BY COMPANY
+ORDER BY 2 DESC
+;
+
+-- TOTAL OF LAID OFFS BASED OF EVERY MONTH --
+
+SELECT substring(`DATE`, 1, 7) AS `MONTH`, sum(total_laid_off)
+FROM layoffs_stage2
+WHERE substring(`DATE`, 1, 7) IS NOT NULL
+group by `MONTH`
+ORDER BY 1 ASC
+;
+
+-- ROLLING TOTAL OF LAID OFFS BASED OF EVERY MONTH --
+
+WITH ROLLING_TOTAL AS
+(
+SELECT substring(`DATE`, 1, 7) AS `MONTH`, sum(total_laid_off) AS TOTAL_OFF
+FROM layoffs_stage2
+WHERE substring(`DATE`, 1, 7) IS NOT NULL
+group by `MONTH`
+ORDER BY 1 ASC
+
+)
+SELECT `MONTH`, TOTAL_OFF, SUM(TOTAL_OFF) OVER(ORDER BY `MONTH`) AS ROLLING_STATUS
+FROM ROLLING_TOTAL
+;
+
+SELECT company, sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY COMPANY
+ORDER BY 2 DESC
+;
+
+-- TOTAL LAID OFF OF COMPANY PER YEAR --
+SELECT company, YEAR(`DATE`), sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY COMPANY, year(`DATE`)
+ORDER BY 2 DESC
+;
+
+-- TOP 3 COMPANY TOTAL_LAID_OFF PER YEAR--
+WITH company_year (COMPANY, years, TOTAL_LAID_OFF) AS
+(
+SELECT company, YEAR(`DATE`), sum(total_laid_off)
+FROM layoffs_stage2
+GROUP BY COMPANY, year(`DATE`)
+ORDER BY 2 DESC
+
+), 
+COMPANY_YEAR_RANK AS
+(
+SELECT *,
+dense_rank() OVER(PARTITION BY years ORDER BY TOTAL_LAID_OFF DESC) AS RANKING
+FROM COMPANY_YEAR
+WHERE years IS NOT NULL
+)
+
+SELECT *
+FROM COMPANY_YEAR_RANK
+WHERE RANKING <= 3
+AND years IS NOT NULL
+ORDER BY years ASC, total_laid_off DESC
+;
+
+
+
+
