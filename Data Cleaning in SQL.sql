@@ -1,0 +1,252 @@
+
+-- SQL Project - Data Cleaning
+
+-- https://www.kaggle.com/datasets/swaptr/layoffs-2022
+
+
+
+SELECT *
+FROM layoff;
+
+-- 1. REMOVE DUPLICATES --
+-- 2. STANDARDIZE THE DATA --
+-- 3. NULL OR EMPTY VALUES --
+-- 4. REMOVE  ANNY COLUMNS --
+
+
+
+-- TO CREATE TABLE LAYOFF_STAGING AND SAME FORMAT IN LAYOFFS TABLE  --
+CREATE TABLE LAYOFFS_STAGING
+LIKE layoff;
+
+-- TO COPY THE DATA OF LAYOFFS TABLE AND INSERT IN LAYOFFS--
+INSERT INTO LAYOFFS_STAGING
+SELECT * FROM layoff
+;
+
+
+
+SELECT *
+FROM LAYOFFS_STAGING
+;
+
+
+
+-- 1. REMOVE DUPLICATES --
+-- FIRST STEP YOU NEED TO USE PARTITION WINDOWS FUNCTION --
+-- SECOND STEP USE CTE --
+
+
+-- TO DETERMINE DUPLICATE BY GIVING A ROW NUMBER  TABLE --
+SELECT *,
+ROW_NUMBER() OVER(PARTITION BY COMPANY, LOCATION, INDUSTRY, TOTAL_LAID_OFF, `DATE`, STAGE, COUNTRY, FUNDS_RAISED_MILLIONS) AS ROW_NUM
+FROM LAYOFFS_STAGING
+;
+
+-- MAIN CODE FOR CHECKING DUPLICATE AND USING CTE -- 
+WITH REMOVING_DUPLICATE AS
+(
+SELECT *,
+ROW_NUMBER() OVER(PARTITION BY COMPANY, LOCATION, INDUSTRY, TOTAL_LAID_OFF, `DATE`, STAGE, COUNTRY, FUNDS_RAISED_MILLIONS) AS ROW_NUM
+FROM LAYOFFS_STAGING
+)
+SELECT * 
+FROM REMOVING_DUPLICATE
+WHERE ROW_NUM > 1
+;
+
+-- TO CHECK IF THE CODE FOR CHECKING DUPLICATE IS RIGHT --
+SELECT *
+FROM layoffs_staging
+WHERE COMPANY = 'CASPER'
+;
+
+-- CREATING NEW TABLE TO INSERT A NEW COLUMN --
+CREATE TABLE `layoffs_staging2` (
+  `company` text,
+  `location` text,
+  `industry` text,
+  `total_laid_off` int DEFAULT NULL,
+  `percentage_laid_off` text,
+  `date` text,
+  `stage` text,
+  `country` text,
+  `funds_raised_millions` int DEFAULT NULL,
+  `ROW_NUM` INT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- FOR CHECKING IF THE CODE IS RIGHT IN CREATING NEW TABLE --
+SELECT *
+FROM layoffs_staging2
+;
+
+
+INSERT INTO LAYOFFS_STAGING2
+SELECT *, ROW_NUMBER() OVER(PARTITION BY COMPANY, LOCATION, INDUSTRY, TOTAL_LAID_OFF, `DATE`, STAGE, COUNTRY, FUNDS_RAISED_MILLIONS) AS ROW_NUM
+FROM layoffs_staging
+;
+
+-- CHECKING THE DUPLICATES
+SELECT *
+FROM layoffs_staging2
+WHERE ROW_NUM > 1
+;
+
+-- REMOVING THE DUPLICATES --
+DELETE 
+FROM LAYOFFS_STAGING2
+WHERE ROW_NUM > 1
+;
+
+-- 2. STANDARDIZE THE DATA --
+
+
+-- REMOVE SAFE MODES OR IF YOU CANNOT DELETE OR UPDATE --
+-- GO TO EDIT--
+-- PREFENCES --
+-- SQL EDITOR --
+-- UNCHECK THE SAFE MODE --
+
+
+-- FOR CHECKING --
+SELECT COMPANY, TRIM(company)
+FROM layoffs_staging2
+;
+
+
+-- DELETING UNCESSARY SPACES
+UPDATE LAYOFFS_STAGING2
+SET COMPANY = TRIM(COMPANY)
+;
+
+-- CHECKING THE LOCATION COLUMN --
+SELECT distinct LOCATION
+FROM layoffs_staging2
+ORDER BY 1
+;
+
+-- CHECKING THE INDUSTRY COLUMN --
+SELECT distinct INDUSTRY
+FROM layoffs_staging2
+ORDER BY 1
+;
+
+SELECT DISTINCT INDUSTRY
+FROM layoffs_staging2
+WHERE INDUSTRY LIKE "CRYPTO%"
+;
+
+
+UPDATE LAYOFFS_STAGING2
+SET INDUSTRY = "Crypto"
+where industry like "crypto%"
+;
+
+-- to compare the format of date and standardize date --
+SELECT `date`, str_to_date(`date`,"%m/%d/%Y")
+FROM layoffs_staging2
+;
+
+UPDATE LAYOFFS_STAGING2
+SET `DATE` = str_to_date(`DATE`, "%m/%d/%Y")
+;
+
+SELECT distinct country
+FROM layoffs_staging2
+order by 1
+;
+
+UPDATE LAYOFFS_STAGING2
+SET COUNTRY = "United States"
+where country like "United States%"
+;
+
+-- FOR CHECKING IF ALL THE UNITED STATES ARE CHANGED --
+SELECT distinct country
+FROM layoffs_staging2
+where country like "United States%"
+;
+
+-- to change the data type of date to become text to date --
+ALTER TABLE layoffs_staging2
+modify `DATE` date;
+
+SELECT *
+FROM layoffs_staging2
+;
+
+
+-- 3. NULL OR EMPTY VALUES --
+
+
+-- to see the null values in total_laid_off and percentage_laid_off --
+SELECT *
+from layoffs_staging2
+where total_laid_off is null
+and percentage_laid_off is null
+;
+
+-- to see the null value or blank value in industry --
+
+SELECT INDUSTRY
+FROM layoffs_staging2
+ORDER BY 1
+;
+
+SELECT INDUSTRY
+FROM layoffs_staging2
+WHERE INDUSTRY IS NULL
+OR INDUSTRY = ""
+;
+
+
+-- TO UPDATE BLANK VALUE TO NULL VALUE --
+UPDATE LAYOFFS_STAGING2
+SET INDUSTRY = NULL
+WHERE INDUSTRY IS NULL
+OR INDUSTRY = ""
+;
+
+
+-- to check the null in table 1 and can get in table 2 --
+SELECT *
+FROM layoffs_staging2 AS T1
+JOIN layoffs_staging2 AS T2
+	ON T1.COMPANY = T2.COMPANY
+    WHERE T1.INDUSTRY IS NULL
+    AND T2.INDUSTRY IS NOT NULL
+    ;
+
+
+-- TO CHANGE THE NULL VALUE TO THE SAME VALUE IN OTHER SAME VALUE --
+UPDATE LAYOFFS_STAGING2 AS T1
+JOIN LAYOFFS_STAGING2 AS T2
+	SET T1.INDUSTRY = T2.INDUSTRY
+    WHERE T1.INDUSTRY IS NULL
+    AND T2.INDUSTRY IS NOT NULL
+    ;
+    
+-- VIEWING THE ROW THAT HAS NULL VALUES IN TOTAL_LAID_OFF AND PERCENTAGE_LAID_OFF --
+SELECT *
+FROM layoffs_staging2
+WHERE total_laid_off IS NULL
+AND percentage_laid_off IS NULL
+;
+
+-- DELETING THE ROW THAT HAS NULL VALUES IN TOTAL_LAID_OFF AND PERCENTAGE_LAID_OFF --
+DELETE
+FROM layoffs_staging2
+WHERE total_laid_off IS NULL
+AND percentage_laid_off IS NULL
+;
+
+-- DELETING UNCESSARY COLUMN --
+ALTER TABLE layoffs_staging2
+DROP COLUMN ROW_NUM
+;
+
+
+SELECT *
+FROM layoffs_staging2
+;
+
